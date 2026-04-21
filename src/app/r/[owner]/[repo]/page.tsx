@@ -18,6 +18,8 @@ interface PublicRepoPageProps {
 
 const loadPublicReport = cache(loadPublicRepoReport);
 
+export const revalidate = 1800;
+
 const scoreTone = (score: number): string => {
   if (score >= 80) return "text-emerald-700";
   if (score >= 60) return "text-sky-700";
@@ -124,7 +126,7 @@ export default async function PublicRepoPage({ params }: PublicRepoPageProps) {
     );
   }
 
-  const { report, shareUrl } = result;
+  const { report, shareUrl, freshness } = result;
   const progress = Math.round((report.score / report.maxScore) * 100);
   const badgeMarkdown = buildReadmeBadgeMarkdown({
     appOrigin: getAppOrigin(),
@@ -186,6 +188,9 @@ export default async function PublicRepoPage({ params }: PublicRepoPageProps) {
               {report.metrics.fullName}
             </h1>
             <p className="mt-3 max-w-3xl text-base text-slate-700">{report.metrics.description}</p>
+            <p className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+              {freshness.label}
+            </p>
 
             <div className="mt-7 flex flex-wrap items-end justify-between gap-5">
               <div>

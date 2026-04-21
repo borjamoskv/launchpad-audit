@@ -1,6 +1,7 @@
 import { buildAuditReport } from "@/lib/audit";
 import { buildScoreBadgeSvg } from "@/lib/badge";
 import { loadRepoSnapshot, parseGitHubRepoUrl } from "@/lib/github";
+import { PUBLIC_REPORT_REVALIDATE_SECONDS } from "@/lib/public-report";
 
 const DEFAULT_OBJECTIVE = "Conseguir mas stars y feedback cualificado en 30 dias";
 
@@ -49,7 +50,10 @@ export async function GET(request: Request) {
     return svgResponse(buildErrorBadge("invalid repo"), 400);
   }
 
-  const repoSnapshot = await loadRepoSnapshot(repoIdentifier);
+  const repoSnapshot = await loadRepoSnapshot(repoIdentifier, undefined, {
+    allowEnvToken: false,
+    revalidateSeconds: PUBLIC_REPORT_REVALIDATE_SECONDS,
+  });
 
   if (!repoSnapshot.ok) {
     return svgResponse(buildErrorBadge("repo error"), repoSnapshot.status);

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildPublicReportImageUrl, getAppOrigin } from "@/lib/public-report";
+import {
+  buildPublicReportFreshness,
+  buildPublicReportImageUrl,
+  formatRevalidateWindow,
+  getAppOrigin,
+  PUBLIC_REPORT_REVALIDATE_SECONDS,
+} from "@/lib/public-report";
 
 describe("getAppOrigin", () => {
   it("uses the configured public app URL when present", () => {
@@ -24,5 +30,21 @@ describe("buildPublicReportImageUrl", () => {
     expect(buildPublicReportImageUrl("https://launchpad-audit.vercel.app/r/vercel/next.js")).toBe(
       "https://launchpad-audit.vercel.app/r/vercel/next.js/opengraph-image",
     );
+  });
+});
+
+describe("public report freshness", () => {
+  it("formats revalidation windows for user-facing copy", () => {
+    expect(formatRevalidateWindow(1800)).toBe("30 min");
+    expect(formatRevalidateWindow(3600)).toBe("1 hora");
+    expect(formatRevalidateWindow(7200)).toBe("2 horas");
+  });
+
+  it("describes public cache without private token usage", () => {
+    const freshness = buildPublicReportFreshness();
+
+    expect(freshness.revalidateSeconds).toBe(PUBLIC_REPORT_REVALIDATE_SECONDS);
+    expect(freshness.label).toContain("GitHub público");
+    expect(freshness.label).toContain("No usa tokens privados");
   });
 });

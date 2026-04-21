@@ -10,6 +10,7 @@ export const size = {
 };
 
 export const contentType = "image/png";
+export const revalidate = 1800;
 
 interface OpenGraphImageProps {
   params: Promise<{

@@ -16,6 +16,7 @@ Demo: https://launchpad-audit.vercel.app
 - Genera un badge SVG de score para pegarlo en el README del repo.
 - Publica páginas compartibles `/r/owner/repo` con score, metadata social y CTA.
 - Genera tarjetas Open Graph dinámicas y un sprint de lanzamiento de 7 días por repo.
+- Cachea lecturas públicas de GitHub durante 30 minutos sin usar tokens privados.
 - Expone `robots.txt` y `sitemap.xml` para distribución orgánica.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Guarda un historial local de auditorías con tendencia de score por repositorio.
@@ -117,7 +118,7 @@ Para generar un badge SVG público:
 
 - `GET /api/badge?repoUrl=https://github.com/owner/repo`
 - Devuelve `image/svg+xml` cacheable para README.
-- No acepta tokens por query; usa repos públicos o `GITHUB_TOKEN` de servidor para lecturas.
+- No acepta tokens por query ni usa `GITHUB_TOKEN`; solo audita repos públicos.
 
 Para compartir una auditoría pública:
 
@@ -125,7 +126,7 @@ Para compartir una auditoría pública:
 - Renderiza score, métricas, acciones prioritarias y Markdown del badge.
 - Incluye tarjeta Open Graph dinámica en `/r/owner/repo/opengraph-image`.
 - Incluye un sprint de lanzamiento de 7 días para ejecutar mejoras.
-- Solo usa datos públicos de GitHub o `GITHUB_TOKEN` de servidor.
+- Solo usa datos públicos de GitHub; las lecturas se revalidan como máximo cada 30 minutos.
 
 SEO/distribución:
 

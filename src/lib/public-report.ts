@@ -9,11 +9,18 @@ import type { AuditResponse } from "@/lib/types";
 
 export const DEFAULT_PUBLIC_OBJECTIVE = "Conseguir mas stars y feedback cualificado en 30 dias";
 export const DEFAULT_APP_ORIGIN = "https://launchpad-audit.vercel.app";
+export const PUBLIC_REPORT_REVALIDATE_SECONDS = 30 * 60;
+
+export interface PublicReportFreshness {
+  label: string;
+  revalidateSeconds: number;
+}
 
 export interface PublicReportSuccess {
   ok: true;
   report: AuditResponse;
   shareUrl: string;
+  freshness: PublicReportFreshness;
 }
 
 export interface PublicReportFailure {
@@ -33,6 +40,29 @@ export const buildPublicReportImageUrl = (shareUrl: string): string => {
   return new URL("opengraph-image", shareUrl.endsWith("/") ? shareUrl : `${shareUrl}/`).toString();
 };
 
+export const formatRevalidateWindow = (seconds: number): string => {
+  if (seconds % 3600 === 0) {
+    const hours = seconds / 3600;
+    return `${hours} ${hours === 1 ? "hora" : "horas"}`;
+  }
+
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes} min`;
+  }
+
+  return `${seconds} s`;
+};
+
+export const buildPublicReportFreshness = (
+  revalidateSeconds = PUBLIC_REPORT_REVALIDATE_SECONDS,
+): PublicReportFreshness => {
+  return {
+    label: `GitHub público, cacheado hasta ${formatRevalidateWindow(revalidateSeconds)}. No usa tokens privados.`,
+    revalidateSeconds,
+  };
+};
+
 export const loadPublicRepoReport = async (
   ownerParam: string,
   repoParam: string,
@@ -48,7 +78,10 @@ export const loadPublicRepoReport = async (
   }
 
   const repoUrl = buildGitHubRepoUrl(repoIdentifier);
-  const repoSnapshot = await loadRepoSnapshot(repoIdentifier);
+  const repoSnapshot = await loadRepoSnapshot(repoIdentifier, undefined, {
+    allowEnvToken: false,
+    revalidateSeconds: PUBLIC_REPORT_REVALIDATE_SECONDS,
+  });
 
   if (!repoSnapshot.ok) {
     return {
@@ -69,5 +102,6 @@ export const loadPublicRepoReport = async (
     ok: true,
     report,
     shareUrl: shareUrl ?? getAppOrigin(),
+    freshness: buildPublicReportFreshness(),
   };
 };

@@ -44,6 +44,8 @@ interface GitHubTreeResponse {
 
 interface GitHubRequestOptions {
   authToken?: string;
+  allowEnvToken?: boolean;
+  revalidateSeconds?: number;
 }
 
 export interface RepoIdentifier {
@@ -97,20 +99,28 @@ const hasPrefix = (pathSet: Set<string>, prefix: string): boolean => {
   return false;
 };
 
-const pickAuthToken = (candidate?: string): string | undefined => {
+export interface GitHubFetchInit extends RequestInit {
+  next?: {
+    revalidate?: number;
+  };
+}
+
+const pickAuthToken = (candidate?: string, allowEnvToken = true): string | undefined => {
   const inlineToken = candidate?.trim();
 
   if (inlineToken) {
     return inlineToken;
   }
 
+  if (!allowEnvToken) {
+    return undefined;
+  }
+
   const envToken = process.env.GITHUB_TOKEN?.trim();
   return envToken || undefined;
 };
 
-const buildHeaders = (authToken?: string): HeadersInit => {
-  const token = pickAuthToken(authToken);
-
+const buildHeaders = (token?: string): HeadersInit => {
   if (!token) {
     return {
       Accept: "application/vnd.github+json",
@@ -123,6 +133,24 @@ const buildHeaders = (authToken?: string): HeadersInit => {
     "User-Agent": "launchpad-audit",
     Authorization: `Bearer ${token}`,
   };
+};
+
+export const buildGitHubRequestInit = (options: GitHubRequestOptions = {}): GitHubFetchInit => {
+  const token = pickAuthToken(options.authToken, options.allowEnvToken ?? true);
+  const init: GitHubFetchInit = {
+    headers: buildHeaders(token),
+  };
+
+  if (token) {
+    init.cache = "no-store";
+    return init;
+  }
+
+  init.next = {
+    revalidate: options.revalidateSeconds ?? 0,
+  };
+
+  return init;
 };
 
 /**
@@ -173,10 +201,7 @@ export const parseGitHubRepoUrl = (rawUrl: string): RepoIdentifier | null => {
 
 const githubRequest = async <T>(path: string, options: GitHubRequestOptions = {}): Promise<ApiResult<T>> => {
   try {
-    const response = await fetch(`${GITHUB_API_BASE}${path}`, {
-      headers: buildHeaders(options.authToken),
-      next: { revalidate: 0 },
-    });
+    const response = await fetch(`${GITHUB_API_BASE}${path}`, buildGitHubRequestInit(options));
 
     if (!response.ok) {
       if (response.status === 403 && response.headers.get("x-ratelimit-remaining") === "0") {
@@ -290,8 +315,10 @@ const loadPathSet = async (
 export const loadRepoSnapshot = async (
   identifier: RepoIdentifier,
   authToken?: string,
+  requestOptions: Omit<GitHubRequestOptions, "authToken"> = {},
 ): Promise<ApiResult<RepoSnapshot>> => {
   const options: GitHubRequestOptions = {
+    ...requestOptions,
     authToken,
   };
 
