@@ -5,6 +5,8 @@
 
 Aplicación web para auditar repositorios de GitHub y convertirlos en proyectos con más tracción.
 
+Demo: https://launchpad-audit.vercel.app
+
 ## Qué hace
 
 - Calcula un **Discoverability Score** (0-100) con señales de onboarding y crecimiento.
@@ -48,7 +50,7 @@ GITHUB_TOKEN=tu_token
 Configura una GitHub OAuth App con callback:
 
 - Local: `http://localhost:3000/api/auth/github/callback`
-- Producción: `https://tu-dominio/api/auth/github/callback`
+- Producción: `https://launchpad-audit.vercel.app/api/auth/github/callback`
 
 Variables:
 
@@ -92,7 +94,7 @@ También se exponen endpoints de conexión OAuth:
 
 ## Despliegue rápido (Vercel)
 
-1. Importa el repo en Vercel.
+1. Importa el repo en Vercel o usa `npx vercel deploy --prod`.
 2. Añade variables (`GITHUB_TOKEN` o bloque OAuth) en Variables de Entorno.
 3. Deploy.
 
