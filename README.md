@@ -17,6 +17,7 @@ Demo: https://launchpad-audit.vercel.app
 - Publica páginas compartibles `/r/owner/repo` con score, metadata social y CTA.
 - Genera tarjetas Open Graph dinámicas y un sprint de lanzamiento de 7 días por repo.
 - Cachea lecturas públicas de GitHub durante 30 minutos sin usar tokens privados.
+- Incluye galería pública `/explore` con repos curados y páginas auditables indexadas.
 - Expone `robots.txt` y `sitemap.xml` para distribución orgánica.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Guarda un historial local de auditorías con tendencia de score por repositorio.
@@ -127,6 +128,13 @@ Para compartir una auditoría pública:
 - Incluye tarjeta Open Graph dinámica en `/r/owner/repo/opengraph-image`.
 - Incluye un sprint de lanzamiento de 7 días para ejecutar mejoras.
 - Solo usa datos públicos de GitHub; las lecturas se revalidan como máximo cada 30 minutos.
+
+Para explorar auditorías públicas:
+
+- `GET /explore`
+- Muestra una galería estática de repos open source curados.
+- Cada tarjeta enlaza a su auditoría pública `/r/owner/repo`.
+- El sitemap incluye `/explore` y todas las auditorías curadas.
 
 SEO/distribución:
 

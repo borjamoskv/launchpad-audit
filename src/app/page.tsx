@@ -612,9 +612,17 @@ export default function Home() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <header className="space-y-4">
-          <p className="inline-flex rounded-full border border-slate-300/70 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
-            Launchpad Audit
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="inline-flex rounded-full border border-slate-300/70 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+              Launchpad Audit
+            </p>
+            <a
+              className="rounded-full border border-slate-300 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-500 hover:text-emerald-700"
+              href="/explore"
+            >
+              Explorar auditorías públicas
+            </a>
+          </div>
           <h1 className="font-display text-4xl leading-tight text-slate-900 sm:text-5xl">
             Convierte tu repo de GitHub en un producto que gane tracción real
           </h1>
