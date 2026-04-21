@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { buildAuditMarkdownReport } from "@/lib/audit-report";
 import { buildLaunchKit } from "@/lib/launch-kit";
 import type { AuditResponse, PriorityLevel } from "@/lib/types";
 
@@ -65,6 +66,7 @@ export default function Home() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [copiedKitPath, setCopiedKitPath] = useState<string | null>(null);
+  const [auditReportCopied, setAuditReportCopied] = useState(false);
   const [pullRequestUrl, setPullRequestUrl] = useState("");
   const [pullRequestMessage, setPullRequestMessage] = useState("");
   const [isCreatingPullRequest, setIsCreatingPullRequest] = useState(false);
@@ -80,6 +82,12 @@ export default function Home() {
     if (!report) return [];
 
     return buildLaunchKit(report);
+  }, [report]);
+
+  const auditMarkdownReport = useMemo(() => {
+    if (!report) return "";
+
+    return buildAuditMarkdownReport(report);
   }, [report]);
 
   const refreshAuthStatus = async () => {
@@ -218,11 +226,26 @@ export default function Home() {
       setReport(payload as AuditResponse);
       setPullRequestUrl("");
       setPullRequestMessage("");
+      setAuditReportCopied(false);
     } catch {
       setReport(null);
       setErrorMessage("No se pudo conectar con el servicio de auditoría.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyAuditReport = async () => {
+    if (!auditMarkdownReport) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(auditMarkdownReport);
+      setAuditReportCopied(true);
+      window.setTimeout(() => setAuditReportCopied(false), 1800);
+    } catch {
+      setErrorMessage("No se pudo copiar el informe Markdown.");
     }
   };
 
@@ -434,6 +457,13 @@ export default function Home() {
                     <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Discoverability Score</p>
                     <h2 className="mt-1 text-2xl font-bold text-slate-900">{report.metrics.fullName}</h2>
                     <p className="mt-2 max-w-2xl text-sm text-slate-600">{report.metrics.description}</p>
+                    <button
+                      type="button"
+                      className="mt-4 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                      onClick={handleCopyAuditReport}
+                    >
+                      {auditReportCopied ? "Informe copiado" : "Copiar informe Markdown"}
+                    </button>
                   </div>
                   <div className={`text-right text-4xl font-bold ${scoreTone(report.score)}`}>
                     {report.score}

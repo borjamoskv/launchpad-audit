@@ -12,6 +12,7 @@ Demo: https://launchpad-audit.vercel.app
 - Calcula un **Discoverability Score** (0-100) con señales de onboarding y crecimiento.
 - Detecta gaps clave del repo: README, licencia, templates, releases, actividad, etc.
 - Propone **acciones priorizadas** por impacto.
+- Exporta un informe Markdown completo de la auditoría.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
 - Puede abrir una Pull Request con el Launch kit en el repo auditado.
