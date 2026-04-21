@@ -1,5 +1,8 @@
 # Launchpad Audit
 
+[![CI](https://github.com/borjamoskv/launchpad-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/borjamoskv/launchpad-audit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0f172a.svg)](LICENSE)
+
 Aplicación web para auditar repositorios de GitHub y convertirlos en proyectos con más tracción.
 
 ## Qué hace
