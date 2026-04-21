@@ -14,6 +14,7 @@ Demo: https://launchpad-audit.vercel.app
 - Propone **acciones priorizadas** por impacto.
 - Exporta un informe Markdown completo de la auditoría.
 - Genera un badge SVG de score para pegarlo en el README del repo.
+- Publica páginas compartibles `/r/owner/repo` con score, metadata social y CTA.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Guarda un historial local de auditorías con tendencia de score por repositorio.
 - Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
@@ -115,6 +116,12 @@ Para generar un badge SVG público:
 - `GET /api/badge?repoUrl=https://github.com/owner/repo`
 - Devuelve `image/svg+xml` cacheable para README.
 - No acepta tokens por query; usa repos públicos o `GITHUB_TOKEN` de servidor para lecturas.
+
+Para compartir una auditoría pública:
+
+- `GET /r/owner/repo`
+- Renderiza score, métricas, acciones prioritarias y Markdown del badge.
+- Solo usa datos públicos de GitHub o `GITHUB_TOKEN` de servidor.
 
 ## Despliegue rápido (Vercel)
 

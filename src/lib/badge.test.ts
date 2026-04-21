@@ -83,7 +83,7 @@ describe("buildReadmeBadgeMarkdown", () => {
     });
 
     expect(markdown).toBe(
-      "[![Launchpad Score](https://launchpad-audit.vercel.app/api/badge?repoUrl=https%3A%2F%2Fgithub.com%2Facme%2Frocket)](https://launchpad-audit.vercel.app)",
+      "[![Launchpad Score](https://launchpad-audit.vercel.app/api/badge?repoUrl=https%3A%2F%2Fgithub.com%2Facme%2Frocket)](https://launchpad-audit.vercel.app/r/acme/rocket)",
     );
   });
 });

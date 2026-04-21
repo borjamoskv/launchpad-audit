@@ -13,6 +13,7 @@ import {
 import { buildAuditMarkdownReport } from "@/lib/audit-report";
 import { buildReadmeBadgeMarkdown } from "@/lib/badge";
 import { buildLaunchKit } from "@/lib/launch-kit";
+import { buildRepoShareUrl } from "@/lib/share";
 import type { AuditResponse, PriorityLevel } from "@/lib/types";
 
 const priorityLabel: Record<PriorityLevel, string> = {
@@ -157,6 +158,7 @@ export default function Home() {
   const [copiedKitPath, setCopiedKitPath] = useState<string | null>(null);
   const [auditReportCopied, setAuditReportCopied] = useState(false);
   const [readmeBadgeCopied, setReadmeBadgeCopied] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [pullRequestUrl, setPullRequestUrl] = useState("");
   const [pullRequestMessage, setPullRequestMessage] = useState("");
   const [isCreatingPullRequest, setIsCreatingPullRequest] = useState(false);
@@ -187,6 +189,15 @@ export default function Home() {
       appOrigin: window.location.origin,
       report,
     });
+  }, [report]);
+
+  const publicShareUrl = useMemo(() => {
+    if (!report || typeof window === "undefined") return "";
+
+    return buildRepoShareUrl({
+      appOrigin: window.location.origin,
+      repoFullName: report.metrics.fullName,
+    }) ?? "";
   }, [report]);
 
   const previousAudit = useMemo(() => {
@@ -286,6 +297,7 @@ export default function Home() {
 
     const params = new URLSearchParams(window.location.search);
     const authParam = params.get("auth");
+    const repoParam = params.get("repo") ?? params.get("repoUrl");
 
     if (authParam && oauthFeedback[authParam]) {
       const message = oauthFeedback[authParam];
@@ -297,8 +309,20 @@ export default function Home() {
       }, 0);
     }
 
-    if (authParam) {
+    if (repoParam) {
+      const nextRepoUrl = repoParam.slice(0, 240);
+
+      window.setTimeout(() => {
+        if (active) {
+          setRepoUrl(nextRepoUrl);
+        }
+      }, 0);
+    }
+
+    if (authParam || repoParam) {
       params.delete("auth");
+      params.delete("repo");
+      params.delete("repoUrl");
       const normalized = params.toString();
       const cleanPath = `${window.location.pathname}${normalized ? `?${normalized}` : ""}${window.location.hash}`;
       window.history.replaceState({}, "", cleanPath);
@@ -380,6 +404,7 @@ export default function Home() {
       setPullRequestMessage("");
       setAuditReportCopied(false);
       setReadmeBadgeCopied(false);
+      setShareLinkCopied(false);
     } catch {
       setReport(null);
       setCurrentAuditEntry(null);
@@ -441,6 +466,7 @@ export default function Home() {
     setPullRequestMessage("");
     setAuditReportCopied(false);
     setReadmeBadgeCopied(false);
+    setShareLinkCopied(false);
   };
 
   const handleClearAuditHistory = () => {
@@ -478,6 +504,20 @@ export default function Home() {
       window.setTimeout(() => setReadmeBadgeCopied(false), 1800);
     } catch {
       setErrorMessage("No se pudo copiar el badge Markdown.");
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!publicShareUrl) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(publicShareUrl);
+      setShareLinkCopied(true);
+      window.setTimeout(() => setShareLinkCopied(false), 1800);
+    } catch {
+      setErrorMessage("No se pudo copiar el enlace público.");
     }
   };
 
@@ -739,6 +779,13 @@ export default function Home() {
                         onClick={handleCopyReadmeBadge}
                       >
                         {readmeBadgeCopied ? "Badge copiado" : "Copiar badge README"}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                        onClick={handleCopyShareLink}
+                      >
+                        {shareLinkCopied ? "Enlace copiado" : "Copiar página pública"}
                       </button>
                     </div>
                   </div>

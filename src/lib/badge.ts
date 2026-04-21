@@ -1,4 +1,5 @@
 import type { AuditResponse } from "@/lib/types";
+import { buildRepoShareUrl } from "@/lib/share";
 
 const BADGE_HEIGHT = 22;
 const TEXT_Y = 15;
@@ -88,6 +89,10 @@ export const buildScoreBadgeSvg = ({
 export const buildReadmeBadgeMarkdown = ({ appOrigin, report }: BadgeMarkdownInput): string => {
   const badgeUrl = new URL("/api/badge", appOrigin);
   badgeUrl.searchParams.set("repoUrl", report.repoUrl);
+  const shareUrl = buildRepoShareUrl({
+    appOrigin,
+    repoFullName: report.metrics.fullName,
+  });
 
-  return `[![Launchpad Score](${badgeUrl.toString()})](${appOrigin})`;
+  return `[![Launchpad Score](${badgeUrl.toString()})](${shareUrl ?? appOrigin})`;
 };
