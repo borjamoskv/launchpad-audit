@@ -39,6 +39,13 @@ interface GitHubAuthStatus {
   username?: string;
 }
 
+interface LaunchKitPullRequestResponse {
+  branchName: string;
+  pullRequestUrl: string;
+  pullRequestNumber: number;
+  filesChanged: number;
+}
+
 const oauthFeedback: Record<string, string> = {
   connected: "GitHub conectado correctamente.",
   oauth_not_configured: "OAuth no está configurado en servidor. Usa token manual o configura variables OAuth.",
@@ -58,6 +65,9 @@ export default function Home() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [copiedKitPath, setCopiedKitPath] = useState<string | null>(null);
+  const [pullRequestUrl, setPullRequestUrl] = useState("");
+  const [pullRequestMessage, setPullRequestMessage] = useState("");
+  const [isCreatingPullRequest, setIsCreatingPullRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const progress = useMemo(() => {
@@ -206,11 +216,57 @@ export default function Home() {
       }
 
       setReport(payload as AuditResponse);
+      setPullRequestUrl("");
+      setPullRequestMessage("");
     } catch {
       setReport(null);
       setErrorMessage("No se pudo conectar con el servicio de auditoría.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreatePullRequest = async () => {
+    if (!report) {
+      return;
+    }
+
+    setErrorMessage("");
+    setPullRequestMessage("");
+    setPullRequestUrl("");
+    setIsCreatingPullRequest(true);
+
+    try {
+      const response = await fetch("/api/github/launch-kit-pr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          repoUrl: report.repoUrl,
+          objective: report.objective,
+          githubToken: githubToken.trim(),
+        }),
+      });
+
+      const payload = (await response.json()) as LaunchKitPullRequestResponse | { error?: string };
+
+      if (!response.ok) {
+        setErrorMessage(
+          payload && "error" in payload && payload.error
+            ? payload.error
+            : "No se pudo crear la PR con el Launch kit.",
+        );
+        return;
+      }
+
+      const result = payload as LaunchKitPullRequestResponse;
+      setPullRequestUrl(result.pullRequestUrl);
+      setPullRequestMessage(`PR #${result.pullRequestNumber} creada con ${result.filesChanged} archivos.`);
+    } catch {
+      setErrorMessage("No se pudo conectar con el servicio de creación de PR.");
+    } finally {
+      setIsCreatingPullRequest(false);
     }
   };
 
@@ -510,7 +566,30 @@ export default function Home() {
               </article>
 
               <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-slate-900">Launch kit</h3>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-900">Launch kit</h3>
+                  <button
+                    type="button"
+                    className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    onClick={handleCreatePullRequest}
+                    disabled={isCreatingPullRequest}
+                  >
+                    {isCreatingPullRequest ? "Creando PR..." : "Crear PR"}
+                  </button>
+                </div>
+
+                {pullRequestMessage ? (
+                  <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                    {pullRequestUrl ? (
+                      <a className="underline underline-offset-2" href={pullRequestUrl} target="_blank" rel="noreferrer">
+                        {pullRequestMessage}
+                      </a>
+                    ) : (
+                      pullRequestMessage
+                    )}
+                  </p>
+                ) : null}
+
                 <div className="mt-4 space-y-3">
                   {launchKit.map((file) => (
                     <div key={file.path} className="rounded-xl border border-slate-200 p-3">

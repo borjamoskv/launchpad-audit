@@ -14,6 +14,7 @@ Demo: https://launchpad-audit.vercel.app
 - Propone **acciones priorizadas** por impacto.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
+- Puede abrir una Pull Request con el Launch kit en el repo auditado.
 - Permite usar token de GitHub opcional para evitar rate limit y auditar repos privados.
 - Incluye conexión OAuth de GitHub (opcional) para no introducir token manual en cada auditoría.
 
@@ -44,6 +45,8 @@ App en `http://localhost:3000`.
 ```bash
 GITHUB_TOKEN=tu_token
 ```
+
+Para crear Pull Requests desde la app, usa un token u OAuth con permisos de escritura sobre contenidos y pull requests del repositorio objetivo.
 
 ### Opción B: OAuth (recomendada)
 
@@ -91,6 +94,12 @@ También se exponen endpoints de conexión OAuth:
 - `GET /api/auth/github/callback`
 - `GET /api/auth/github/status`
 - `POST /api/auth/github/disconnect`
+
+Para crear una PR con el Launch kit:
+
+- `POST /api/github/launch-kit-pr`
+- Requiere OAuth conectado o `githubToken` en el body.
+- No usa `GITHUB_TOKEN` de servidor para escrituras; las PRs requieren credencial explícita del usuario.
 
 ## Despliegue rápido (Vercel)
 
