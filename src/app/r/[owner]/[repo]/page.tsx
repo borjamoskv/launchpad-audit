@@ -1,18 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { buildAuditReport } from "@/lib/audit";
 import { buildReadmeBadgeMarkdown } from "@/lib/badge";
-import { loadRepoSnapshot } from "@/lib/github";
+import { buildLaunchSprint } from "@/lib/launch-sprint";
 import {
-  buildGitHubRepoUrl,
-  buildRepoShareUrl,
-  parseShareRouteParams,
-} from "@/lib/share";
-import type { AuditResponse } from "@/lib/types";
-
-const DEFAULT_OBJECTIVE = "Conseguir mas stars y feedback cualificado en 30 dias";
-const DEFAULT_APP_ORIGIN = "https://launchpad-audit.vercel.app";
+  buildPublicReportImageUrl,
+  getAppOrigin,
+  loadPublicRepoReport,
+} from "@/lib/public-report";
 
 interface PublicRepoPageProps {
   params: Promise<{
@@ -21,24 +16,7 @@ interface PublicRepoPageProps {
   }>;
 }
 
-interface PublicReportSuccess {
-  ok: true;
-  report: AuditResponse;
-  shareUrl: string;
-}
-
-interface PublicReportFailure {
-  ok: false;
-  status: number;
-  error: string;
-  repoUrl?: string;
-}
-
-type PublicReportResult = PublicReportSuccess | PublicReportFailure;
-
-const getAppOrigin = (): string => {
-  return process.env.NEXT_PUBLIC_APP_URL?.trim() || DEFAULT_APP_ORIGIN;
-};
+const loadPublicReport = cache(loadPublicRepoReport);
 
 const scoreTone = (score: number): string => {
   if (score >= 80) return "text-emerald-700";
@@ -68,44 +46,6 @@ const formatDate = (dateLike: string): string => {
   });
 };
 
-const loadPublicReport = cache(
-  async (ownerParam: string, repoParam: string): Promise<PublicReportResult> => {
-    const repoIdentifier = parseShareRouteParams(ownerParam, repoParam);
-
-    if (!repoIdentifier) {
-      return {
-        ok: false,
-        status: 400,
-        error: "Ruta de repositorio no válida.",
-      };
-    }
-
-    const repoUrl = buildGitHubRepoUrl(repoIdentifier);
-    const repoSnapshot = await loadRepoSnapshot(repoIdentifier);
-
-    if (!repoSnapshot.ok) {
-      return {
-        ok: false,
-        status: repoSnapshot.status,
-        error: repoSnapshot.error,
-        repoUrl,
-      };
-    }
-
-    const report = buildAuditReport(repoSnapshot.data, DEFAULT_OBJECTIVE, repoUrl);
-    const shareUrl = buildRepoShareUrl({
-      appOrigin: getAppOrigin(),
-      repoFullName: report.metrics.fullName,
-    });
-
-    return {
-      ok: true,
-      report,
-      shareUrl: shareUrl ?? getAppOrigin(),
-    };
-  },
-);
-
 export async function generateMetadata({ params }: PublicRepoPageProps): Promise<Metadata> {
   const { owner, repo } = await params;
   const result = await loadPublicReport(owner, repo);
@@ -120,6 +60,7 @@ export async function generateMetadata({ params }: PublicRepoPageProps): Promise
   const { report, shareUrl } = result;
   const title = `${report.metrics.fullName}: ${report.score}/${report.maxScore} Launchpad Score`;
   const description = `${report.summary} Stars: ${report.metrics.stars}. Forks: ${report.metrics.forks}.`;
+  const imageUrl = buildPublicReportImageUrl(shareUrl);
 
   return {
     title,
@@ -132,11 +73,20 @@ export async function generateMetadata({ params }: PublicRepoPageProps): Promise
       description,
       url: shareUrl,
       type: "website",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title,
       description,
+      images: [imageUrl],
     },
   };
 }
@@ -180,9 +130,27 @@ export default async function PublicRepoPage({ params }: PublicRepoPageProps) {
     appOrigin: getAppOrigin(),
     report,
   });
+  const launchSprint = buildLaunchSprint(report);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: report.metrics.fullName,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Any",
+    url: shareUrl,
+    codeRepository: report.repoUrl,
+    description: report.metrics.description,
+    isAccessibleForFree: true,
+  };
 
   return (
     <main className="relative min-h-screen overflow-x-hidden px-4 py-10 sm:px-8 lg:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.22),transparent_42%),radial-gradient(circle_at_82%_8%,rgba(251,146,60,0.23),transparent_38%),radial-gradient(circle_at_50%_78%,rgba(14,165,233,0.16),transparent_45%)]" />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -318,6 +286,31 @@ export default async function PublicRepoPage({ params }: PublicRepoPageProps) {
               ))}
             </div>
           </article>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-slate-950 p-6 text-white shadow-xl shadow-slate-300/20 sm:p-7">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                7-day launch sprint
+              </p>
+              <h2 className="mt-2 font-display text-3xl font-bold">Plan operativo para subir el score</h2>
+            </div>
+            <p className="max-w-md text-sm text-slate-300">
+              Un ciclo semanal cerrado: corregir gaps, compartir, recoger feedback y volver a medir.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+            {launchSprint.map((step) => (
+              <div key={step.day} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">Día {step.day}</p>
+                <h3 className="mt-2 text-sm font-bold text-white">{step.title}</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{step.description}</p>
+                <p className="mt-3 text-xs font-semibold text-orange-200">{step.outcome}</p>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
     </main>
