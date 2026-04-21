@@ -40,6 +40,15 @@ interface GitHubAuthStatus {
   username?: string;
 }
 
+interface GitHubRepositoryOption {
+  fullName: string;
+  htmlUrl: string;
+  isPrivate: boolean;
+  stars: number;
+  pushedAt: string;
+  language: string | null;
+}
+
 interface LaunchKitPullRequestResponse {
   branchName: string;
   pullRequestUrl: string;
@@ -64,6 +73,9 @@ export default function Home() {
   const [oauthMessage, setOauthMessage] = useState("");
   const [authStatus, setAuthStatus] = useState<GitHubAuthStatus | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [repositories, setRepositories] = useState<GitHubRepositoryOption[]>([]);
+  const [repositoryMessage, setRepositoryMessage] = useState("");
+  const [isLoadingRepositories, setIsLoadingRepositories] = useState(false);
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [copiedKitPath, setCopiedKitPath] = useState<string | null>(null);
   const [auditReportCopied, setAuditReportCopied] = useState(false);
@@ -235,6 +247,58 @@ export default function Home() {
     }
   };
 
+  const handleLoadRepositories = async () => {
+    setErrorMessage("");
+    setRepositoryMessage("");
+    setIsLoadingRepositories(true);
+
+    try {
+      const response = await fetch("/api/github/repos", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const payload = (await response.json()) as
+        | { repositories?: GitHubRepositoryOption[] }
+        | { error?: string };
+
+      if (!response.ok) {
+        setRepositories([]);
+        setErrorMessage(
+          payload && "error" in payload && payload.error
+            ? payload.error
+            : "No se pudieron cargar los repositorios.",
+        );
+        return;
+      }
+
+      const loadedRepositories = "repositories" in payload && payload.repositories ? payload.repositories : [];
+      setRepositories(loadedRepositories);
+      setRepositoryMessage(
+        loadedRepositories.length > 0
+          ? `${loadedRepositories.length} repositorios cargados.`
+          : "No se encontraron repositorios disponibles.",
+      );
+    } catch {
+      setRepositories([]);
+      setErrorMessage("No se pudo conectar con el listado de repositorios.");
+    } finally {
+      setIsLoadingRepositories(false);
+    }
+  };
+
+  const handleRepositorySelection = (selectedUrl: string) => {
+    if (!selectedUrl) {
+      return;
+    }
+
+    setRepoUrl(selectedUrl);
+    setReport(null);
+    setPullRequestUrl("");
+    setPullRequestMessage("");
+    setAuditReportCopied(false);
+  };
+
   const handleCopyAuditReport = async () => {
     if (!auditMarkdownReport) {
       return;
@@ -358,17 +422,53 @@ export default function Home() {
             {isAuthLoading ? (
               <p className="mt-2 text-sm text-slate-600">Comprobando sesión OAuth...</p>
             ) : authStatus?.connected ? (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-slate-700">
-                  Conectado como <span className="font-semibold text-slate-900">@{authStatus.username ?? "usuario"}</span>.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
-                >
-                  Desconectar
-                </button>
+              <div className="mt-2 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-slate-700">
+                    Conectado como <span className="font-semibold text-slate-900">@{authStatus.username ?? "usuario"}</span>.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleLoadRepositories}
+                      disabled={isLoadingRepositories}
+                      className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {isLoadingRepositories ? "Cargando..." : "Cargar repos"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisconnect}
+                      className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                    >
+                      Desconectar
+                    </button>
+                  </div>
+                </div>
+
+                {repositories.length > 0 ? (
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Repositorios recientes
+                    </span>
+                    <select
+                      className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                      value=""
+                      onChange={(event) => handleRepositorySelection(event.target.value)}
+                    >
+                      <option value="">Selecciona un repo</option>
+                      {repositories.map((repository) => (
+                        <option key={repository.fullName} value={repository.htmlUrl}>
+                          {repository.fullName} | {repository.isPrivate ? "privado" : "publico"} | {repository.stars} stars | {repository.language ?? "N/D"} | {formatDate(repository.pushedAt)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                {repositoryMessage ? (
+                  <p className="text-xs font-medium text-slate-600">{repositoryMessage}</p>
+                ) : null}
               </div>
             ) : authStatus?.configured ? (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
