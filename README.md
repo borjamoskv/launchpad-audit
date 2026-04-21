@@ -13,6 +13,7 @@ Demo: https://launchpad-audit.vercel.app
 - Detecta gaps clave del repo: README, licencia, templates, releases, actividad, etc.
 - Propone **acciones priorizadas** por impacto.
 - Exporta un informe Markdown completo de la auditoría.
+- Genera un badge SVG de score para pegarlo en el README del repo.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
 - Guarda un historial local de auditorías con tendencia de score por repositorio.
 - Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
@@ -108,6 +109,12 @@ Para listar repositorios del usuario autenticado:
 
 - `GET /api/github/repos`
 - Requiere OAuth conectado.
+
+Para generar un badge SVG público:
+
+- `GET /api/badge?repoUrl=https://github.com/owner/repo`
+- Devuelve `image/svg+xml` cacheable para README.
+- No acepta tokens por query; usa repos públicos o `GITHUB_TOKEN` de servidor para lecturas.
 
 ## Despliegue rápido (Vercel)
 

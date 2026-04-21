@@ -11,6 +11,7 @@ import {
   type ScoreDelta,
 } from "@/lib/audit-history";
 import { buildAuditMarkdownReport } from "@/lib/audit-report";
+import { buildReadmeBadgeMarkdown } from "@/lib/badge";
 import { buildLaunchKit } from "@/lib/launch-kit";
 import type { AuditResponse, PriorityLevel } from "@/lib/types";
 
@@ -155,6 +156,7 @@ export default function Home() {
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [copiedKitPath, setCopiedKitPath] = useState<string | null>(null);
   const [auditReportCopied, setAuditReportCopied] = useState(false);
+  const [readmeBadgeCopied, setReadmeBadgeCopied] = useState(false);
   const [pullRequestUrl, setPullRequestUrl] = useState("");
   const [pullRequestMessage, setPullRequestMessage] = useState("");
   const [isCreatingPullRequest, setIsCreatingPullRequest] = useState(false);
@@ -176,6 +178,15 @@ export default function Home() {
     if (!report) return "";
 
     return buildAuditMarkdownReport(report);
+  }, [report]);
+
+  const readmeBadgeMarkdown = useMemo(() => {
+    if (!report || typeof window === "undefined") return "";
+
+    return buildReadmeBadgeMarkdown({
+      appOrigin: window.location.origin,
+      report,
+    });
   }, [report]);
 
   const previousAudit = useMemo(() => {
@@ -368,6 +379,7 @@ export default function Home() {
       setPullRequestUrl("");
       setPullRequestMessage("");
       setAuditReportCopied(false);
+      setReadmeBadgeCopied(false);
     } catch {
       setReport(null);
       setCurrentAuditEntry(null);
@@ -428,6 +440,7 @@ export default function Home() {
     setPullRequestUrl("");
     setPullRequestMessage("");
     setAuditReportCopied(false);
+    setReadmeBadgeCopied(false);
   };
 
   const handleClearAuditHistory = () => {
@@ -451,6 +464,20 @@ export default function Home() {
       window.setTimeout(() => setAuditReportCopied(false), 1800);
     } catch {
       setErrorMessage("No se pudo copiar el informe Markdown.");
+    }
+  };
+
+  const handleCopyReadmeBadge = async () => {
+    if (!readmeBadgeMarkdown) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(readmeBadgeMarkdown);
+      setReadmeBadgeCopied(true);
+      window.setTimeout(() => setReadmeBadgeCopied(false), 1800);
+    } catch {
+      setErrorMessage("No se pudo copiar el badge Markdown.");
     }
   };
 
@@ -698,13 +725,22 @@ export default function Home() {
                     <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Discoverability Score</p>
                     <h2 className="mt-1 text-2xl font-bold text-slate-900">{report.metrics.fullName}</h2>
                     <p className="mt-2 max-w-2xl text-sm text-slate-600">{report.metrics.description}</p>
-                    <button
-                      type="button"
-                      className="mt-4 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
-                      onClick={handleCopyAuditReport}
-                    >
-                      {auditReportCopied ? "Informe copiado" : "Copiar informe Markdown"}
-                    </button>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                        onClick={handleCopyAuditReport}
+                      >
+                        {auditReportCopied ? "Informe copiado" : "Copiar informe Markdown"}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+                        onClick={handleCopyReadmeBadge}
+                      >
+                        {readmeBadgeCopied ? "Badge copiado" : "Copiar badge README"}
+                      </button>
+                    </div>
                   </div>
                   <div className={`text-right text-4xl font-bold ${scoreTone(report.score)}`}>
                     {report.score}
