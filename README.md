@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Launchpad Audit
 
-## Getting Started
+Aplicación web para auditar repositorios de GitHub y convertirlos en proyectos con más tracción.
 
-First, run the development server:
+## Qué hace
+
+- Calcula un **Discoverability Score** (0-100) con señales de onboarding y crecimiento.
+- Detecta gaps clave del repo: README, licencia, templates, releases, actividad, etc.
+- Propone **acciones priorizadas** por impacto.
+- Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
+- Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
+- Permite usar token de GitHub opcional para evitar rate limit y auditar repos privados.
+- Incluye conexión OAuth de GitHub (opcional) para no introducir token manual en cada auditoría.
+
+## Stack
+
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS
+- Vitest
+
+## Ejecutar en local
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App en `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuración de GitHub
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Opción A: token manual (rápida)
 
-## Learn More
+- Campo "Token GitHub (opcional)" en la UI (se usa solo en esa petición).
+- Variable de entorno en servidor:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+GITHUB_TOKEN=tu_token
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Opción B: OAuth (recomendada)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Configura una GitHub OAuth App con callback:
 
-## Deploy on Vercel
+- Local: `http://localhost:3000/api/auth/github/callback`
+- Producción: `https://tu-dominio/api/auth/github/callback`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Variables:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+GITHUB_OAUTH_CLIENT_ID=...
+GITHUB_OAUTH_CLIENT_SECRET=...
+GITHUB_OAUTH_REDIRECT_URI=    # opcional, si no se deriva automáticamente
+```
+
+Nunca subas `.env.local` al repositorio.
+
+## Scripts
+
+```bash
+npm run dev      # desarrollo
+npm run test     # tests unitarios
+npm run lint     # lint
+npm run build    # build de producción
+```
+
+## API interna
+
+`POST /api/audit`
+
+Body JSON:
+
+```json
+{
+  "repoUrl": "https://github.com/owner/repo",
+  "objective": "Conseguir 100 stars en 30 días",
+  "githubToken": "opcional"
+}
+```
+
+También se exponen endpoints de conexión OAuth:
+
+- `GET /api/auth/github/start`
+- `GET /api/auth/github/callback`
+- `GET /api/auth/github/status`
+- `POST /api/auth/github/disconnect`
+
+## Despliegue rápido (Vercel)
+
+1. Importa el repo en Vercel.
+2. Añade variables (`GITHUB_TOKEN` o bloque OAuth) en Variables de Entorno.
+3. Deploy.
+
+## CI
+
+Incluye workflow de GitHub Actions en `.github/workflows/ci.yml` que ejecuta:
+
+- `npm ci`
+- `npm run test`
+- `npm run lint`
+- `npm run build`
+
+## Notas
+
+- Consume API oficial de GitHub.
+- Si no usas token, puedes alcanzar límite de peticiones anónimas.
