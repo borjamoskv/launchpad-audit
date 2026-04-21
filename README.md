@@ -14,6 +14,7 @@ Demo: https://launchpad-audit.vercel.app
 - Propone **acciones priorizadas** por impacto.
 - Exporta un informe Markdown completo de la auditoría.
 - Genera copies base para distribución en X, Reddit, Hacker News y dev.to.
+- Guarda un historial local de auditorías con tendencia de score por repositorio.
 - Genera un **Launch kit** con README, CONTRIBUTING, templates de issues/PR y changelog.
 - Puede abrir una Pull Request con el Launch kit en el repo auditado.
 - Lista repositorios recientes del usuario cuando GitHub está conectado por OAuth.

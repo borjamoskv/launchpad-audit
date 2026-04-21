@@ -1,6 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  buildAuditHistoryEntry,
+  findPreviousAuditForRepo,
+  getScoreDelta,
+  mergeAuditHistory,
+  parseAuditHistory,
+  type AuditHistoryEntry,
+  type ScoreDelta,
+} from "@/lib/audit-history";
 import { buildAuditMarkdownReport } from "@/lib/audit-report";
 import { buildLaunchKit } from "@/lib/launch-kit";
 import type { AuditResponse, PriorityLevel } from "@/lib/types";
@@ -12,6 +21,7 @@ const priorityLabel: Record<PriorityLevel, string> = {
 };
 
 const numberFormatter = new Intl.NumberFormat("es-ES");
+const AUDIT_HISTORY_STORAGE_KEY = "launchpad-audit:history:v1";
 
 const formatDate = (dateLike: string): string => {
   const parsed = new Date(dateLike);
@@ -27,11 +37,74 @@ const formatDate = (dateLike: string): string => {
   });
 };
 
+const formatDateTime = (dateLike: string): string => {
+  const parsed = new Date(dateLike);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "No disponible";
+  }
+
+  return parsed.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const scoreTone = (score: number): string => {
   if (score >= 80) return "text-emerald-700";
   if (score >= 60) return "text-sky-700";
   if (score >= 40) return "text-amber-700";
   return "text-rose-700";
+};
+
+const scoreDeltaTextTone: Record<ScoreDelta["tone"], string> = {
+  positive: "text-emerald-700",
+  neutral: "text-slate-600",
+  negative: "text-rose-700",
+};
+
+const scoreDeltaPanelTone: Record<ScoreDelta["tone"], string> = {
+  positive: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  neutral: "border-slate-200 bg-slate-50 text-slate-800",
+  negative: "border-rose-200 bg-rose-50 text-rose-900",
+};
+
+const readAuditHistoryFromStorage = (): AuditHistoryEntry[] => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const rawHistory = window.localStorage.getItem(AUDIT_HISTORY_STORAGE_KEY);
+
+  return rawHistory ? parseAuditHistory(rawHistory) : [];
+};
+
+const writeAuditHistoryToStorage = (history: AuditHistoryEntry[]): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    window.localStorage.setItem(AUDIT_HISTORY_STORAGE_KEY, JSON.stringify(history));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const removeAuditHistoryFromStorage = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    window.localStorage.removeItem(AUDIT_HISTORY_STORAGE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 interface GitHubAuthStatus {
@@ -69,8 +142,11 @@ export default function Home() {
   const [objective, setObjective] = useState("Conseguir más stars y feedback cualificado en 30 días");
   const [githubToken, setGithubToken] = useState("");
   const [report, setReport] = useState<AuditResponse | null>(null);
+  const [auditHistory, setAuditHistory] = useState<AuditHistoryEntry[]>([]);
+  const [currentAuditEntry, setCurrentAuditEntry] = useState<AuditHistoryEntry | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [oauthMessage, setOauthMessage] = useState("");
+  const [historyMessage, setHistoryMessage] = useState("");
   const [authStatus, setAuthStatus] = useState<GitHubAuthStatus | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [repositories, setRepositories] = useState<GitHubRepositoryOption[]>([]);
@@ -101,6 +177,29 @@ export default function Home() {
 
     return buildAuditMarkdownReport(report);
   }, [report]);
+
+  const previousAudit = useMemo(() => {
+    if (!report) return null;
+
+    return findPreviousAuditForRepo(auditHistory, report.metrics.fullName, currentAuditEntry);
+  }, [auditHistory, currentAuditEntry, report]);
+
+  const currentScoreDelta = useMemo(() => {
+    if (!report || !previousAudit) return null;
+
+    return getScoreDelta(report.score, previousAudit.score);
+  }, [previousAudit, report]);
+
+  const auditHistoryPreview = useMemo(() => {
+    return auditHistory.slice(0, 5).map((entry) => {
+      const previousEntry = findPreviousAuditForRepo(auditHistory, entry.repoFullName, entry);
+
+      return {
+        entry,
+        delta: previousEntry ? getScoreDelta(entry.score, previousEntry.score) : null,
+      };
+    });
+  }, [auditHistory]);
 
   const refreshAuthStatus = async () => {
     try {
@@ -199,6 +298,24 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadStoredHistory = async () => {
+      await Promise.resolve();
+
+      if (active) {
+        setAuditHistory(readAuditHistoryFromStorage());
+      }
+    };
+
+    void loadStoredHistory();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -231,16 +348,29 @@ export default function Home() {
 
       if (!response.ok) {
         setReport(null);
+        setCurrentAuditEntry(null);
         setErrorMessage(payload && "error" in payload && payload.error ? payload.error : "No se pudo auditar el repositorio.");
         return;
       }
 
-      setReport(payload as AuditResponse);
+      const nextReport = payload as AuditResponse;
+      const nextHistoryEntry = buildAuditHistoryEntry(nextReport);
+      const nextHistory = mergeAuditHistory(auditHistory, nextHistoryEntry);
+
+      setReport(nextReport);
+      setCurrentAuditEntry(nextHistoryEntry);
+      setAuditHistory(nextHistory);
+      setHistoryMessage(
+        writeAuditHistoryToStorage(nextHistory)
+          ? "Auditoría guardada en el historial local."
+          : "Auditoría completada, pero no se pudo guardar el historial local.",
+      );
       setPullRequestUrl("");
       setPullRequestMessage("");
       setAuditReportCopied(false);
     } catch {
       setReport(null);
+      setCurrentAuditEntry(null);
       setErrorMessage("No se pudo conectar con el servicio de auditoría.");
     } finally {
       setIsLoading(false);
@@ -294,9 +424,20 @@ export default function Home() {
 
     setRepoUrl(selectedUrl);
     setReport(null);
+    setCurrentAuditEntry(null);
     setPullRequestUrl("");
     setPullRequestMessage("");
     setAuditReportCopied(false);
+  };
+
+  const handleClearAuditHistory = () => {
+    setAuditHistory([]);
+    setCurrentAuditEntry(null);
+    setHistoryMessage(
+      removeAuditHistoryFromStorage()
+        ? "Historial local borrado."
+        : "No se pudo borrar el historial local.",
+    );
   };
 
   const handleCopyAuditReport = async () => {
@@ -636,6 +777,81 @@ export default function Home() {
             </div>
 
             <div className="space-y-6">
+              <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Historial local
+                    </p>
+                    <h3 className="mt-1 text-lg font-bold text-slate-900">Tendencia del repo</h3>
+                  </div>
+
+                  {auditHistory.length > 0 ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-500 hover:text-slate-900"
+                      onClick={handleClearAuditHistory}
+                    >
+                      Limpiar
+                    </button>
+                  ) : null}
+                </div>
+
+                {currentScoreDelta && previousAudit ? (
+                  <div className={`mt-4 rounded-2xl border px-4 py-3 ${scoreDeltaPanelTone[currentScoreDelta.tone]}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em]">Cambio desde la medición anterior</p>
+                    <p className="mt-1 text-2xl font-bold">{currentScoreDelta.label}</p>
+                    <p className="mt-1 text-xs">Comparado con {formatDateTime(previousAudit.createdAt)}.</p>
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    Aún no hay una auditoría anterior de este repo en este navegador.
+                  </p>
+                )}
+
+                {historyMessage ? (
+                  <p className="mt-3 text-xs font-medium text-slate-600">{historyMessage}</p>
+                ) : null}
+
+                <div className="mt-4 space-y-3">
+                  {auditHistoryPreview.length === 0 ? (
+                    <p className="text-sm text-slate-600">
+                      Audita un repositorio para empezar a ver evolución de score, stars y actividad.
+                    </p>
+                  ) : (
+                    auditHistoryPreview.map(({ entry, delta }) => (
+                      <div key={entry.id} className="rounded-xl border border-slate-200 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <a
+                              className="text-sm font-semibold text-slate-900 underline-offset-2 hover:underline"
+                              href={entry.repoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {entry.repoFullName}
+                            </a>
+                            <p className="mt-1 text-xs text-slate-500">{formatDateTime(entry.createdAt)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-lg font-bold ${scoreTone(entry.score)}`}>
+                              {entry.score}
+                              <span className="text-xs text-slate-500">/{entry.maxScore}</span>
+                            </p>
+                            <p className={`text-xs font-semibold ${delta ? scoreDeltaTextTone[delta.tone] : "text-slate-500"}`}>
+                              {delta ? delta.label : "primera medición"}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-600">
+                          {numberFormatter.format(entry.stars)} stars · {numberFormatter.format(entry.forks)} forks · {numberFormatter.format(entry.openIssues)} issues
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+
               <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900">Acciones prioritarias</h3>
                 <div className="mt-4 space-y-3">
